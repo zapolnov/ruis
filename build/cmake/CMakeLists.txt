@@ -24,9 +24,16 @@ add_source_directory(srcs
     RECURSIVE
 )
 
+set(rsrs)
+add_resource_directory(rsrs
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../res/ruis_res"
+)
+
 declare_library(${name}
     SOURCES
         ${srcs}
+    RESOURCES
+        ${rsrs}
     PUBLIC_INCLUDE_DIRECTORIES
         "${CMAKE_CURRENT_SOURCE_DIR}/../../src"
     INSTALL_INCLUDE_DIRECTORIES
