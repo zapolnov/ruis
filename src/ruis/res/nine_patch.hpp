@@ -35,14 +35,13 @@ namespace ruis::res {
  * %resource description:
  *
  * @param file - name of the image file, can be raster image or SVG.
- *
- * @param borders - widths of borders in pixels in the left-top-right-bottom order.
+ * @param borders - fraction widths of borders in the left-top-right-bottom order.
  *
  * Example:
  * @code
  * ruis_npt_rightbutton_pressed{
  *     file{rightbutton_pressed.svg}
- *     borders{5 5 5 6}
+ *     borders{0.4167 0.1613 0.4167 0.1935}
  * }
  * @endcode
  */
@@ -58,7 +57,6 @@ public:
 	 */
 	const std::array<std::array<utki::shared_ref<const ruis::render::vertex_array>, 3>, 3> vaos;
 
-private:
 	const utki::shared_ref<const res::image> image;
 
 	const sides<real> fraction_borders;
@@ -78,48 +76,9 @@ public:
 		sides<real> fraction_borders
 	);
 
-	class image_matrix
-	{
-		const std::array<std::array<utki::shared_ref<const res::image>, 3>, 3> img_matrix;
-
-		std::weak_ptr<const nine_patch> parent;
-
-		real mul; // for erasing from the cache
-
-	public:
-		decltype(img_matrix)& images() const noexcept
-		{
-			return this->img_matrix;
-		}
-
-		image_matrix(
-			std::array<std::array<utki::shared_ref<const res::image>, 3>, 3> l,
-			std::weak_ptr<const nine_patch> parent,
-			real mul
-		);
-
-		image_matrix(const image_matrix&) = delete;
-		image_matrix& operator=(const image_matrix&) = delete;
-
-		image_matrix(image_matrix&&) = delete;
-		image_matrix& operator=(image_matrix&&) = delete;
-
-		// NOLINTNEXTLINE(bugprone-exception-escape, "false positive")
-		~image_matrix();
-	};
-
-	std::shared_ptr<image_matrix> get(const ruis::units& units) const;
-
-	const sides<real>& get_fraction_borders() const noexcept
-	{
-		return this->fraction_borders;
-	}
-
 	sides<real> get_borders(const ruis::units& units) const noexcept;
 
 private:
-	mutable std::map<real, std::weak_ptr<image_matrix>> cache;
-
 	static utki::shared_ref<nine_patch> load(
 		const ruis::resource_loader& loader,
 		const ::tml::forest& desc,

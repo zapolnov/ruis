@@ -39,6 +39,16 @@ public:
 		return this->render_context.get();
 	}
 
+	/**
+	 * @brief Shorthand alias for render context.
+	 * @return this->render_context.get().
+	 */
+	// TODO: return const ref?
+	ruis::render::context& ctx() const noexcept
+	{
+		return this->render_context.get();
+	}
+
 	struct objects {
 		utki::shared_ref<const ruis::render::context::shaders> shaders;
 		utki::shared_ref<const vertex_array> empty_vertex_array;
@@ -82,6 +92,42 @@ public:
 	renderer& operator=(renderer&&) = delete;
 
 	virtual ~renderer() = default;
+
+	/**
+	 * @brief Render texture on a unit quad.
+	 * @param matrix - transformation matrix to use for rendering.
+	 * @param tex - texture to render.
+	 */
+	void render(
+		const matrix4& matrix, //
+		const render::texture_2d& tex
+	) const
+	{
+		this->render(
+			matrix, //
+			tex,
+			this->obj().pos_tex_quad_01_vao.get()
+		);
+	}
+
+	/**
+	 * @brief Render a VAO with texture.
+	 * @param matrix - transformation matrix to use for rendering.
+	 * @param tex - texture to render.
+	 * @param vao - vertex array to use for rendering.
+	 */
+	virtual void render(
+		const matrix4& matrix, //
+		const render::texture_2d& tex,
+		const render::vertex_array& vao
+	) const
+	{
+		this->shaders().pos_tex->render(
+			matrix, //
+			vao,
+			tex
+		);
+	}
 };
 
 } // namespace ruis::render

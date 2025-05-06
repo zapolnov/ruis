@@ -39,57 +39,23 @@ using namespace ruis;
 using namespace ruis::res;
 
 namespace {
-class fixed_texture : public image::texture
+class res_raster_image : public image
 {
-protected:
-	const utki::shared_ref<const render::texture_2d> tex_2d;
+	utki::shared_ref<const render::texture_2d> tex_2d;
 
-	fixed_texture(
-		utki::shared_ref<const ruis::render::renderer> r, //
-		utki::shared_ref<const render::texture_2d> tex
-	) :
-		image::texture(
-			std::move(r), //
-			tex.get().dims()
-		),
-		tex_2d(std::move(tex))
-	{}
-
-public:
-	void render(
-		const matrix4& matrix, //
-		const render::vertex_array& vao
-	) const override
-	{
-		this->renderer.get().shaders().pos_tex->render(
-			matrix, //
-			vao,
-			this->tex_2d.get()
-		);
-	}
-};
-
-class res_raster_image :
-	public image, //
-	public fixed_texture
-{
 public:
 	res_raster_image( //
-		utki::shared_ref<ruis::render::renderer> renderer,
-		utki::shared_ref<const render::texture_2d> tex
+		utki::shared_ref<const render::texture_2d> tex_2d
 	) :
-		fixed_texture( //
-			std::move(renderer),
-			std::move(tex)
-		)
+		tex_2d(std::move(tex_2d))
 	{}
 
-	utki::shared_ref<const image::texture> get(
+	utki::shared_ref<const render::texture_2d> get(
 		const ruis::units& units, //
 		vector2 for_dims
 	) const override
 	{
-		return utki::make_shared_from(*this);
+		return this->tex_2d;
 	}
 
 	r4::vector2<uint32_t> dims(const ruis::units& units) const noexcept override
@@ -102,15 +68,12 @@ public:
 		const papki::file& fi
 	)
 	{
-		return utki::make_shared<res_raster_image>(
-			loader.renderer,
-			loader.renderer.get().render_context.get().make_texture_2d(
-				rasterimage::read(fi),
-				{
-					// TODO: what about params?
-				}
-			)
-		);
+		return utki::make_shared<res_raster_image>(loader.renderer.get().render_context.get().make_texture_2d(
+			rasterimage::read(fi),
+			{
+				// TODO: what about params?
+			}
+		));
 	}
 };
 
@@ -140,57 +103,25 @@ public:
 		return ceil(wh).to<uint32_t>();
 	}
 
-	class svg_texture : public fixed_texture
-	{
-		std::weak_ptr<const res_svg_image> parent;
-
-	public:
-		svg_texture(
-			utki::shared_ref<const ruis::render::renderer> r,
-			utki::shared_ref<const res_svg_image> parent,
-			utki::shared_ref<const render::texture_2d> tex
-		) :
-			fixed_texture(std::move(r), std::move(tex)),
-			parent(parent.to_shared_ptr())
-		{}
-
-		svg_texture(const svg_texture&) = delete;
-		svg_texture& operator=(const svg_texture&) = delete;
-
-		svg_texture(svg_texture&&) = delete;
-		svg_texture& operator=(svg_texture&&) = delete;
-
-		// NOLINTNEXTLINE(bugprone-exception-escape, "false positive")
-		~svg_texture() override
-		{
-			if (auto p = this->parent.lock()) {
-				r4::vector2<unsigned> d = this->tex_2d.get().dims().to<unsigned>();
-				p->cache.erase(d);
-			}
-		}
-	};
-
-	utki::shared_ref<const texture> get(
+	utki::shared_ref<const render::texture_2d> get(
 		const ruis::units& units, //
 		vector2 for_dims
 	) const override
 	{
-		//		TRACE(<< "forDim = " << forDim << std::endl)
-
-		{ // check if in cache
-			auto i = this->cache.find(for_dims.to<unsigned>());
-			if (i != this->cache.end()) {
-				if (auto p = i->second.lock()) {
-					ASSERT(p)
-					return utki::shared_ref(std::move(p));
-				}
+		// TODO: develop algorithm to go through cache from time to time and drop zombie textures
+		if (auto i = this->cache.find(for_dims.to<unsigned>()); i != this->cache.end()) {
+			if (auto p = i->second.lock()) {
+				ASSERT(p)
+				return utki::shared_ref(std::move(p));
+			} else {
+				this->cache.erase(i);
 			}
 		}
-		//		TRACE(<< "not in cache" << std::endl)
 
 		ASSERT(this->dom)
 
 		// in ruis, SVG dimensions are in pp, this is why we cannot use 0 to use native dimension of SVG.
+		// TODO: why can't we use 0?
 		auto svg_dims = this->dims(units).to<real>();
 		for (unsigned i = 0; i != 2; ++i) {
 			if (for_dims[i] == 0) {
@@ -202,37 +133,43 @@ public:
 		svg_params.dpi = unsigned(units.dots_per_inch());
 		svg_params.dims_request = for_dims.to<unsigned>();
 
-		auto im = svgren::rasterize(*this->dom, svg_params);
+		auto im = svgren::rasterize(
+			*this->dom, //
+			svg_params
+		);
 
 		ASSERT(im.dims().x() != 0)
 		ASSERT(im.dims().y() != 0)
-		ASSERT(im.dims().x() * im.dims().y() == im.pixels().size(), [&](auto& o) {
-			o << "im.dims = " << im.dims() << " pixels.size() = " << im.pixels().size();
-		})
+		ASSERT(
+			im.dims().x() * im.dims().y() == im.pixels().size(), //
+			[&](auto& o) {
+				o << "im.dims = " << im.dims() << " pixels.size() = " << im.pixels().size();
+			}
+		)
 
 		auto dims = im.dims();
 
 		// clang-format off
-		auto img = utki::make_shared<svg_texture>(
-			this->renderer,
-			utki::make_shared_from(*this),
-			this->renderer.get().render_context.get().make_texture_2d(
-				std::move(im),
-				{
-					.min_filter = render::texture_2d::filter::nearest,
-					.mag_filter = render::texture_2d::filter::nearest,
-					.mipmap = render::texture_2d::mipmap::none
-				}
-			)
+		auto tex_2d = this->renderer.get().render_context.get().make_texture_2d(
+			std::move(im),
+			{
+				.min_filter = render::texture_2d::filter::nearest,
+				.mag_filter = render::texture_2d::filter::nearest,
+				.mipmap = render::texture_2d::mipmap::none
+			}
 		);
 		// clang-format on
 
-		this->cache[dims] = img.to_shared_ptr();
+		this->cache[dims] = tex_2d.to_shared_ptr();
 
-		return img;
+		return tex_2d;
 	}
 
-	mutable std::map<r4::vector2<unsigned>, std::weak_ptr<texture>> cache;
+	mutable std::map<
+		r4::vector2<unsigned>, //
+		std::weak_ptr<render::texture_2d> //
+		>
+		cache;
 
 	static utki::shared_ref<res_svg_image> load( //
 		const ruis::resource_loader& loader,

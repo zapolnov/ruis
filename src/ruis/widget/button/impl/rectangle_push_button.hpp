@@ -21,61 +21,55 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "../../res/image.hpp"
-
-#include "choice_group.hpp"
+#include "../base/rectangle_button.hpp"
+#include "../push_button.hpp"
 
 namespace ruis {
 
-class tab_group :
-	virtual public widget, //
-	public choice_group
+class rectangle_push_button :
+	virtual public ruis::push_button, //
+	public rectangle_button
 {
-	std::shared_ptr<const res::image> filler;
-	std::shared_ptr<const render::texture_2d> filler_texture;
-
 public:
 	struct all_parameters {
 		layout_parameters layout_params;
 		widget::parameters widget_params;
-		container::parameters container_params;
+		ruis::container::parameters container_params;
+		ruis::padding::parameters padding_params;
+		rectangle::parameters rectangle_params;
+		rectangle_button::parameters rectangle_button_params;
 	};
 
-	tab_group(
+	rectangle_push_button(
 		utki::shared_ref<ruis::context> context, //
 		all_parameters params,
-		// TODO: add only tabs?
-		widget_list tabs
+		ruis::widget_list contents
 	);
 
-	tab_group(const tab_group&) = delete;
-	tab_group& operator=(const tab_group&) = delete;
+	void on_pressed_change() override;
 
-	tab_group(tab_group&&) = delete;
-	tab_group& operator=(tab_group&&) = delete;
+	bool on_mouse_button(const mouse_button_event& e) override
+	{
+		return this->push_button::on_mouse_button(e);
+	}
 
-	~tab_group() override = default;
-
-	void set_filler(std::shared_ptr<const res::image> filler);
-
-	ruis::vector2 measure(const ruis::vector2& quotum) const override;
-
-	void on_lay_out() override;
-
-	void render(const ruis::matrix4& matrix) const override;
+	void on_hovered_change(unsigned pointer_id) override
+	{
+		this->push_button::on_hovered_change(pointer_id);
+	}
 };
 
 namespace make {
-inline utki::shared_ref<ruis::tab_group> tab_group(
-	utki::shared_ref<ruis::context> context, //
-	ruis::tab_group::all_parameters params,
-	widget_list tabs
+inline utki::shared_ref<ruis::rectangle_push_button> rectangle_push_button(
+	utki::shared_ref<ruis::context> context,
+	ruis::rectangle_push_button::all_parameters params,
+	ruis::widget_list contents
 )
 {
-	return utki::make_shared<ruis::tab_group>(
+	return utki::make_shared<ruis::rectangle_push_button>(
 		std::move(context), //
 		std::move(params),
-		std::move(tabs)
+		std::move(contents)
 	);
 }
 } // namespace make
