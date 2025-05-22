@@ -1,3 +1,15 @@
+libruis (0.5.275) unstable; urgency=medium
+
+  * cmake: ext deps
+
+ -- Ivan Gagis <igagis@gmail.com>  Wed, 21 May 2025 00:25:26 +0300
+
+libruis (0.5.274) unstable; urgency=medium
+
+  * cmake: myci
+
+ -- Ivan Gagis <igagis@gmail.com>  Sun, 18 May 2025 23:23:34 +0300
+
 libruis (0.5.273) unstable; urgency=medium
 
   * emsc: embed resources to executable 2
